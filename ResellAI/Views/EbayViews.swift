@@ -70,25 +70,29 @@ struct EbayConnectView: View {
                         BenefitRow(
                             icon: "wand.and.stars.inverse",
                             title: "AI-Powered Listings",
-                            description: "Automated titles, descriptions, and pricing"
+                            description: "Automated titles, descriptions, and pricing",
+                            color: DesignSystem.aiPrimary
                         )
                         
                         BenefitRow(
                             icon: "photo.on.rectangle.angled",
                             title: "Photo-to-Listing",
-                            description: "Take a photo, get a complete eBay listing"
+                            description: "Take a photo, get a complete eBay listing",
+                            color: .green
                         )
                         
                         BenefitRow(
                             icon: "chart.line.uptrend.xyaxis",
                             title: "Smart Pricing",
-                            description: "Market data-driven price suggestions"
+                            description: "Market data-driven price suggestions",
+                            color: .orange
                         )
                         
                         BenefitRow(
                             icon: "clock.fill",
                             title: "Save Hours",
-                            description: "30 seconds vs 30 minutes per listing"
+                            description: "30 seconds vs 30 minutes per listing",
+                            color: .purple
                         )
                     }
                 }
@@ -171,12 +175,12 @@ struct EbayConnectView: View {
         isConnecting = true
         errorMessage = ""
         
-        businessService.connectToEbay { success, error in
+        businessService.authenticateEbay { success in
             DispatchQueue.main.async {
                 isConnecting = false
                 
-                if !success, let error = error {
-                    errorMessage = error
+                if !success {
+                    errorMessage = "Failed to connect to eBay. Please check your internet connection and try again."
                     showingError = true
                 }
             }
