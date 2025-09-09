@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Use Face ID for quick and secure access to ResellAI</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>ResellAI</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>Take photos of items to analyze and sell</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Select photos of items to analyze and sell</string>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <true/>
+    </dict>
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true/>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>armv7</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    
+    <!-- ✅ GOOGLE SIGN-IN CONFIGURATION -->
+    <key>GIDClientID</key>
+    <string>633237603994-trq9c9789f1sjb5tad7ptsj1ojfejord.apps.googleusercontent.com</string>
+    
+    <!-- ✅ URL SCHEMES FOR OAUTH -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <!-- eBay OAuth URL Scheme -->
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.alec.ResellAI.oauth</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>resellai</string>
+            </array>
+            <key>CFBundleURLIconFile</key>
+            <string></string>
+        </dict>
+        <!-- Google Sign-In URL Scheme -->
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.alec.ResellAI.google</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>com.googleusercontent.apps.633237603994-trq9c9789f1sjb5tad7ptsj1ojfejord</string>
+            </array>
+            <key>CFBundleURLIconFile</key>
+            <string></string>
+        </dict>
+    </array>
+    
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>https</string>
+        <string>http</string>
+        <string>googlegmail</string>
+        <string>googleplus</string>
+    </array>
+</dict>
+</plist>

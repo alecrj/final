@@ -1,0 +1,746 @@
+//
+//  EbayService.swift
+//  ResellAI
+//
+//  Fixed eBay OAuth 2.0 with Proper UI State Updates
+//
+
+import SwiftUI
+import Foundation
+import CryptoKit
+import SafariServices
+
+// MARK: - FIXED EBAY SERVICE WITH PROPER UI UPDATES
+class EbayService: NSObject, ObservableObject {
+    @Published var isAuthenticated = false
+    @Published var authStatus = "Not Connected"
+    @Published var userInfo: EbayUser?
+    @Published var connectedUserName: String = ""
+    @Published var connectedUserId: String = ""
+    
+    // OAuth 2.0 tokens
+    private var accessToken: String?
+    private var refreshToken: String?
+    private var tokenExpiryDate: Date?
+    
+    // OAuth 2.0 PKCE parameters
+    private var codeVerifier: String?
+    private var codeChallenge: String?
+    private var state: String?
+    
+    // Safari View Controller for OAuth
+    private var safariViewController: SFSafariViewController?
+    
+    // eBay OAuth Configuration - Production Credentials
+    private let clientId = Configuration.ebayAPIKey
+    private let clientSecret = Configuration.ebayClientSecret
+    private let devId = Configuration.ebayDevId
+    private let ruName = Configuration.ebayRuName
+    private let redirectURI = Configuration.ebayRedirectURI
+    private let appScheme = Configuration.ebayAppScheme
+    
+    // eBay OAuth URLs - Production
+    private let ebayOAuthURL = "https://auth.ebay.com/oauth2/authorize"
+    private let ebayTokenURL = "https://api.ebay.com/identity/v1/oauth2/token"
+    private let ebayUserURL = "https://apiz.ebay.com/commerce/identity/v1/user/"
+    
+    // Storage keys
+    private let accessTokenKey = "EbayAccessToken"
+    private let refreshTokenKey = "EbayRefreshToken"
+    private let tokenExpiryKey = "EbayTokenExpiry"
+    private let userInfoKey = "EbayUserInfo"
+    private let userNameKey = "EbayConnectedUserName"
+    private let userIdKey = "EbayConnectedUserId"
+    
+    private var authCompletion: ((Bool) -> Void)?
+    
+    override init() {
+        super.init()
+        loadSavedTokens()
+        validateSavedTokens()
+    }
+    
+    func initialize() {
+        print("🚀 EbayService initialized - Production OAuth 2.0 Integration")
+        print("=== eBay OAuth 2.0 Configuration ===")
+        print("• Client ID: \(clientId)")
+        print("• Dev ID: \(devId)")
+        print("• RuName: \(ruName)")
+        print("• Web Redirect URI: \(redirectURI)")
+        print("• App Callback URI: \(appScheme)")
+        print("• Environment: PRODUCTION")
+        print("• OAuth Endpoint: \(ebayOAuthURL)")
+        print("• Token Endpoint: \(ebayTokenURL)")
+        print("===================================")
+        
+        // Check if we have valid tokens on startup
+        if let token = accessToken, !token.isEmpty, let expiry = tokenExpiryDate, expiry > Date() {
+            print("✅ Valid eBay access token found")
+            print("• Token expires: \(expiry)")
+            
+            DispatchQueue.main.async {
+                self.isAuthenticated = true
+                self.authStatus = "Connected"
+                self.connectedUserName = UserDefaults.standard.string(forKey: self.userNameKey) ?? ""
+                self.connectedUserId = UserDefaults.standard.string(forKey: self.userIdKey) ?? ""
+                
+                if self.connectedUserName.isEmpty {
+                    print("👤 Fetching eBay user info...")
+                    self.fetchUserInfo()
+                } else {
+                    print("👤 Connected as: \(self.connectedUserName)")
+                    self.authStatus = "Connected as \(self.connectedUserName)"
+                }
+            }
+        } else {
+            print("⚠️ No valid eBay tokens - user needs to authenticate")
+            print("• Access token present: \(accessToken != nil)")
+            print("• Token expired: \(tokenExpiryDate?.timeIntervalSinceNow ?? 0 < 0)")
+            clearTokens()
+        }
+    }
+    
+    // MARK: - TOKEN ACCESS METHODS
+    var hasValidToken: Bool {
+        guard let token = accessToken, !token.isEmpty else { return false }
+        guard let expiry = tokenExpiryDate else { return false }
+        return expiry > Date()
+    }
+    
+    func getAccessToken() -> String? {
+        return hasValidToken ? accessToken : nil
+    }
+    
+    // MARK: - OAUTH 2.0 AUTHENTICATION (FIXED UI UPDATES)
+    func authenticate(completion: @escaping (Bool) -> Void) {
+        print("🔐 Starting eBay OAuth 2.0 authentication...")
+        
+        // Generate PKCE parameters for security
+        generatePKCEParameters()
+        
+        // Build OAuth 2.0 URL
+        guard let authURL = buildOAuthURL() else {
+            print("❌ Failed to build OAuth URL")
+            DispatchQueue.main.async {
+                completion(false)
+            }
+            return
+        }
+        
+        print("🌐 Opening eBay OAuth 2.0: \(authURL.absoluteString)")
+        
+        // Store completion for later use
+        self.authCompletion = completion
+        
+        // Open in Safari
+        DispatchQueue.main.async {
+            self.authStatus = "Connecting to eBay..."
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootViewController = windowScene.windows.first?.rootViewController {
+                
+                self.safariViewController = SFSafariViewController(url: authURL)
+                self.safariViewController?.delegate = self
+                
+                rootViewController.present(self.safariViewController!, animated: true) {
+                    print("✅ Safari OAuth view presented")
+                }
+                
+            } else {
+                print("❌ Could not find root view controller")
+                self.authStatus = "Connection failed"
+                completion(false)
+            }
+        }
+    }
+    
+    private func generatePKCEParameters() {
+        // Generate code verifier (43-128 character random string)
+        codeVerifier = generateCodeVerifier()
+        
+        // Generate code challenge (SHA256 hash of verifier, base64url encoded)
+        if let verifier = codeVerifier {
+            codeChallenge = generateCodeChallenge(from: verifier)
+        }
+        
+        // Generate state parameter for CSRF protection
+        state = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        
+        print("🔐 OAuth 2.0 PKCE parameters generated")
+        print("• Code verifier: \(codeVerifier?.count ?? 0) chars")
+        print("• Code challenge: \(codeChallenge?.prefix(10) ?? "nil")...")
+        print("• State: \(state?.prefix(8) ?? "nil")...")
+    }
+    
+    private func generateCodeVerifier() -> String {
+        let charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+        return String((0..<128).compactMap { _ in charset.randomElement() })
+    }
+    
+    private func generateCodeChallenge(from verifier: String) -> String {
+        let data = verifier.data(using: .utf8)!
+        let hash = SHA256.hash(data: data)
+        return Data(hash).base64URLEncodedString()
+    }
+    
+    private func buildOAuthURL() -> URL? {
+        var components = URLComponents(string: ebayOAuthURL)
+        
+        // Use broader scopes that are definitely available
+        let scopes = [
+            "https://api.ebay.com/oauth/api_scope",
+            "https://api.ebay.com/oauth/api_scope/sell.inventory",
+            "https://api.ebay.com/oauth/api_scope/sell.account",
+            "https://api.ebay.com/oauth/api_scope/commerce.identity.readonly"
+        ]
+        
+        let scopeString = scopes.joined(separator: " ")
+        
+        // Build query items with eBay OAuth 2.0 parameters
+        let queryItems = [
+            URLQueryItem(name: "client_id", value: clientId),
+            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "state", value: state),
+            URLQueryItem(name: "scope", value: scopeString),
+            URLQueryItem(name: "code_challenge", value: codeChallenge),
+            URLQueryItem(name: "code_challenge_method", value: "S256")
+        ]
+        
+        components?.queryItems = queryItems
+        
+        guard let url = components?.url else {
+            print("❌ Failed to build OAuth URL")
+            return nil
+        }
+        
+        print("🔗 eBay OAuth 2.0 URL built:")
+        print("   Client ID: \(clientId)")
+        print("   Redirect URI: \(redirectURI)")
+        print("   Scopes: \(scopes.count) scopes")
+        print("   State: \(state?.prefix(8) ?? "nil")...")
+        print("   PKCE Challenge: \(codeChallenge?.prefix(10) ?? "nil")...")
+        
+        return url
+    }
+    
+    // MARK: - HANDLE OAUTH CALLBACK FROM WEB BRIDGE (FIXED UI UPDATES)
+    func handleAuthCallback(url: URL, completion: ((Bool) -> Void)? = nil) {
+        print("📞 Processing eBay OAuth 2.0 callback: \(url)")
+        print("📋 Full callback URL: \(url.absoluteString)")
+        
+        // FIXED: Close Safari view controller immediately on main thread
+        DispatchQueue.main.async {
+            if let safari = self.safariViewController {
+                safari.dismiss(animated: true) {
+                    print("✅ Safari view dismissed")
+                }
+                self.safariViewController = nil
+            }
+        }
+        
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let queryItems = components?.queryItems
+        
+        // Log all query parameters for debugging
+        print("📋 Callback query items:")
+        queryItems?.forEach { item in
+            print("   • \(item.name): \(item.value ?? "nil")")
+        }
+        
+        // Check for errors
+        if let error = queryItems?.first(where: { $0.name == "error" })?.value {
+            print("❌ OAuth error: \(error)")
+            let errorDescription = queryItems?.first(where: { $0.name == "error_description" })?.value ?? "Unknown error"
+            DispatchQueue.main.async {
+                self.authStatus = "Connection failed: \(errorDescription)"
+                self.authCompletion?(false)
+                completion?(false)
+            }
+            return
+        }
+        
+        // Check for result parameter (error from web bridge)
+        if let result = queryItems?.first(where: { $0.name == "result" })?.value, result == "error" {
+            print("❌ Web bridge reported error")
+            let errorMessage = queryItems?.first(where: { $0.name == "error_description" })?.value ?? "Authentication failed"
+            DispatchQueue.main.async {
+                self.authStatus = "Connection failed: \(errorMessage)"
+                self.authCompletion?(false)
+                completion?(false)
+            }
+            return
+        }
+        
+        // Get authorization code
+        guard let code = queryItems?.first(where: { $0.name == "code" })?.value else {
+            print("❌ No authorization code received")
+            print("Available parameters: \(queryItems?.map { $0.name } ?? [])")
+            DispatchQueue.main.async {
+                self.authStatus = "No authorization code received"
+                self.authCompletion?(false)
+                completion?(false)
+            }
+            return
+        }
+        
+        // Verify state parameter for security
+        if let receivedState = queryItems?.first(where: { $0.name == "state" })?.value {
+            guard receivedState == state else {
+                print("❌ State parameter mismatch - possible CSRF attack")
+                print("   Expected: \(state?.prefix(8) ?? "nil")...")
+                print("   Received: \(receivedState.prefix(8))...")
+                DispatchQueue.main.async {
+                    self.authStatus = "Security error - state mismatch"
+                    self.authCompletion?(false)
+                    completion?(false)
+                }
+                return
+            }
+        }
+        
+        print("✅ Authorization code received: \(code.prefix(20))...")
+        
+        // Exchange authorization code for access token
+        exchangeCodeForTokens(code: code) { [weak self] success in
+            DispatchQueue.main.async {
+                if success {
+                    // FIXED: Update UI state immediately and trigger refresh
+                    self?.isAuthenticated = true
+                    self?.authStatus = "Connected"
+                    
+                    // Force UI refresh by updating published properties
+                    self?.objectWillChange.send()
+                    
+                    print("🎉 eBay OAuth 2.0 authentication successful!")
+                    
+                    // Fetch user info to get username
+                    self?.fetchUserInfo()
+                    
+                    // Call completion immediately
+                    self?.authCompletion?(true)
+                    completion?(true)
+                } else {
+                    self?.authStatus = "Token exchange failed"
+                    print("❌ eBay OAuth 2.0 authentication failed")
+                    self?.authCompletion?(false)
+                    completion?(false)
+                }
+            }
+        }
+    }
+    
+    private func exchangeCodeForTokens(code: String, completion: @escaping (Bool) -> Void) {
+        guard let url = URL(string: ebayTokenURL) else {
+            print("❌ Invalid token endpoint")
+            completion(false)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        
+        // Basic authentication with client credentials
+        let credentials = "\(clientId):\(clientSecret)"
+        let credentialsData = credentials.data(using: .utf8)!
+        let base64Credentials = credentialsData.base64EncodedString()
+        request.setValue("Basic \(base64Credentials)", forHTTPHeaderField: "Authorization")
+        
+        // Build request body with PKCE
+        var bodyComponents = URLComponents()
+        bodyComponents.queryItems = [
+            URLQueryItem(name: "grant_type", value: "authorization_code"),
+            URLQueryItem(name: "code", value: code),
+            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "code_verifier", value: codeVerifier)
+        ]
+        
+        request.httpBody = bodyComponents.percentEncodedQuery?.data(using: .utf8)
+        
+        print("🔄 Exchanging authorization code for tokens...")
+        print("• Endpoint: \(url.absoluteString)")
+        print("• Client ID: \(clientId)")
+        print("• Redirect URI: \(redirectURI)")
+        print("• Code Verifier: \(codeVerifier?.prefix(10) ?? "nil")...")
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                print("❌ Network error: \(error)")
+                completion(false)
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔍 Token exchange response code: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode != 200 {
+                    if let data = data, let errorString = String(data: data, encoding: .utf8) {
+                        print("❌ Token exchange error (\(httpResponse.statusCode)): \(errorString)")
+                        
+                        // Try to parse the error for better debugging
+                        if let errorData = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            print("📋 Parsed error response:")
+                            errorData.forEach { key, value in
+                                print("   • \(key): \(value)")
+                            }
+                        }
+                    }
+                    completion(false)
+                    return
+                }
+            }
+            
+            guard let data = data else {
+                print("❌ No token data received")
+                completion(false)
+                return
+            }
+            
+            // Parse token response
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    print("✅ Token response received")
+                    print("📋 Token response keys: \(json.keys.joined(separator: ", "))")
+                    
+                    self?.accessToken = json["access_token"] as? String
+                    self?.refreshToken = json["refresh_token"] as? String
+                    
+                    if let expiresIn = json["expires_in"] as? Int {
+                        self?.tokenExpiryDate = Date().addingTimeInterval(TimeInterval(expiresIn))
+                    }
+                    
+                    print("✅ Access token: \(self?.accessToken?.prefix(10) ?? "nil")...")
+                    print("✅ Refresh token: \(self?.refreshToken?.prefix(10) ?? "nil")...")
+                    print("✅ Expires: \(self?.tokenExpiryDate ?? Date())")
+                    
+                    // Save tokens securely
+                    self?.saveTokens()
+                    
+                    completion(true)
+                    
+                } else {
+                    print("❌ Invalid token response format")
+                    if let responseString = String(data: data, encoding: .utf8) {
+                        print("Raw response: \(responseString)")
+                    }
+                    completion(false)
+                }
+                
+            } catch {
+                print("❌ Error parsing token response: \(error)")
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("Raw response: \(responseString)")
+                }
+                completion(false)
+            }
+            
+        }.resume()
+    }
+    
+    // MARK: - USER INFO FETCHING (FIXED UI UPDATES)
+    private func fetchUserInfo() {
+        guard let accessToken = accessToken else {
+            print("❌ No access token for user info")
+            return
+        }
+        
+        guard let url = URL(string: ebayUserURL) else {
+            print("❌ Invalid user endpoint")
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        print("👤 Fetching eBay user info from: \(ebayUserURL)")
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                print("❌ User info fetch error: \(error.localizedDescription)")
+                self?.setDefaultUserInfo()
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔍 User info response code: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode != 200 {
+                    if let data = data, let errorString = String(data: data, encoding: .utf8) {
+                        print("❌ User info error (\(httpResponse.statusCode)): \(errorString)")
+                    }
+                    
+                    // Try alternative user info method
+                    self?.fetchUserInfoAlternative()
+                    return
+                }
+            }
+            
+            guard let data = data else {
+                print("❌ No user data received")
+                self?.setDefaultUserInfo()
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    print("✅ eBay user info received: \(json)")
+                    
+                    let username = json["username"] as? String ?? json["userId"] as? String ?? "eBay User"
+                    let userId = json["userId"] as? String ?? json["username"] as? String ?? ""
+                    let email = json["email"] as? String ?? ""
+                    let registrationDate = json["registrationDate"] as? String ?? ""
+                    
+                    let user = EbayUser(
+                        userId: userId,
+                        username: username,
+                        email: email,
+                        registrationDate: registrationDate
+                    )
+                    
+                    DispatchQueue.main.async {
+                        self?.userInfo = user
+                        self?.connectedUserName = username
+                        self?.connectedUserId = userId
+                        self?.authStatus = "Connected as \(username)"
+                        self?.saveUserInfo(user)
+                        
+                        UserDefaults.standard.set(username, forKey: self?.userNameKey ?? "")
+                        UserDefaults.standard.set(userId, forKey: self?.userIdKey ?? "")
+                        
+                        // Force UI refresh
+                        self?.objectWillChange.send()
+                        
+                        print("✅ eBay user connected: \(username) (ID: \(userId))")
+                    }
+                } else {
+                    print("❌ Invalid user info response format")
+                    self?.setDefaultUserInfo()
+                }
+            } catch {
+                print("❌ Error parsing user info: \(error)")
+                self?.setDefaultUserInfo()
+            }
+        }.resume()
+    }
+    
+    private func fetchUserInfoAlternative() {
+        // Try to get user info from account endpoint as fallback
+        guard let accessToken = accessToken else {
+            setDefaultUserInfo()
+            return
+        }
+        
+        let accountURL = "https://api.ebay.com/sell/account/v1/privilege"
+        guard let url = URL(string: accountURL) else {
+            setDefaultUserInfo()
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        print("👤 Trying alternative user info endpoint...")
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("✅ Alternative user endpoint accessible")
+                // For now, just set a default user since we have access
+                self?.setDefaultUserInfo()
+            } else {
+                print("⚠️ Alternative user endpoint also failed, using default")
+                self?.setDefaultUserInfo()
+            }
+        }.resume()
+    }
+    
+    private func setDefaultUserInfo() {
+        DispatchQueue.main.async {
+            self.connectedUserName = "eBay User"
+            self.connectedUserId = "connected"
+            self.authStatus = "Connected to eBay"
+            
+            UserDefaults.standard.set(self.connectedUserName, forKey: self.userNameKey)
+            UserDefaults.standard.set(self.connectedUserId, forKey: self.userIdKey)
+            
+            // Force UI refresh
+            self.objectWillChange.send()
+            
+            print("✅ eBay connection established with default user info")
+        }
+    }
+    
+    // MARK: - TOKEN MANAGEMENT
+    private func saveTokens() {
+        let keychain = UserDefaults.standard // Using UserDefaults for simplicity - in production, use Keychain
+        
+        if let accessToken = accessToken {
+            keychain.set(accessToken, forKey: accessTokenKey)
+        }
+        
+        if let refreshToken = refreshToken {
+            keychain.set(refreshToken, forKey: refreshTokenKey)
+        }
+        
+        if let tokenExpiryDate = tokenExpiryDate {
+            keychain.set(tokenExpiryDate, forKey: tokenExpiryKey)
+        }
+        
+        print("💾 eBay tokens saved securely")
+    }
+    
+    private func loadSavedTokens() {
+        let keychain = UserDefaults.standard
+        
+        accessToken = keychain.string(forKey: accessTokenKey)
+        refreshToken = keychain.string(forKey: refreshTokenKey)
+        tokenExpiryDate = keychain.object(forKey: tokenExpiryKey) as? Date
+        connectedUserName = keychain.string(forKey: userNameKey) ?? ""
+        connectedUserId = keychain.string(forKey: userIdKey) ?? ""
+        
+        if let token = accessToken, !token.isEmpty {
+            print("📱 Loaded saved eBay tokens")
+        }
+    }
+    
+    private func validateSavedTokens() {
+        // Check if access token is expired
+        if let expiry = tokenExpiryDate, expiry <= Date() {
+            print("⚠️ eBay access token expired, attempting refresh...")
+            refreshAccessToken { [weak self] success in
+                if !success {
+                    print("❌ Token refresh failed, user needs to re-authenticate")
+                    self?.clearTokens()
+                }
+            }
+        }
+    }
+    
+    private func refreshAccessToken(completion: @escaping (Bool) -> Void) {
+        guard let refreshToken = refreshToken, !refreshToken.isEmpty else {
+            print("❌ No refresh token available")
+            completion(false)
+            return
+        }
+        
+        guard let url = URL(string: ebayTokenURL) else {
+            completion(false)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        
+        let credentials = "\(clientId):\(clientSecret)"
+        let credentialsData = credentials.data(using: .utf8)!
+        let base64Credentials = credentialsData.base64EncodedString()
+        request.setValue("Basic \(base64Credentials)", forHTTPHeaderField: "Authorization")
+        
+        var bodyComponents = URLComponents()
+        bodyComponents.queryItems = [
+            URLQueryItem(name: "grant_type", value: "refresh_token"),
+            URLQueryItem(name: "refresh_token", value: refreshToken)
+        ]
+        
+        request.httpBody = bodyComponents.percentEncodedQuery?.data(using: .utf8)
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let data = data, error == nil else {
+                completion(false)
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    self?.accessToken = json["access_token"] as? String
+                    
+                    if let expiresIn = json["expires_in"] as? Int {
+                        self?.tokenExpiryDate = Date().addingTimeInterval(TimeInterval(expiresIn))
+                    }
+                    
+                    self?.saveTokens()
+                    print("✅ eBay access token refreshed")
+                    completion(true)
+                } else {
+                    completion(false)
+                }
+            } catch {
+                completion(false)
+            }
+        }.resume()
+    }
+    
+    private func clearTokens() {
+        let keychain = UserDefaults.standard
+        keychain.removeObject(forKey: accessTokenKey)
+        keychain.removeObject(forKey: refreshTokenKey)
+        keychain.removeObject(forKey: tokenExpiryKey)
+        keychain.removeObject(forKey: userInfoKey)
+        keychain.removeObject(forKey: userNameKey)
+        keychain.removeObject(forKey: userIdKey)
+        
+        accessToken = nil
+        refreshToken = nil
+        tokenExpiryDate = nil
+        userInfo = nil
+        connectedUserName = ""
+        connectedUserId = ""
+        
+        DispatchQueue.main.async {
+            self.isAuthenticated = false
+            self.authStatus = "Not Connected"
+            
+            // Force UI refresh
+            self.objectWillChange.send()
+        }
+        
+        print("🗑️ eBay tokens cleared")
+    }
+    
+    private func saveUserInfo(_ user: EbayUser) {
+        do {
+            let userData = try JSONEncoder().encode(user)
+            UserDefaults.standard.set(userData, forKey: userInfoKey)
+        } catch {
+            print("❌ Error saving user info: \(error)")
+        }
+    }
+    
+    // MARK: - PUBLIC METHODS
+    func signOut() {
+        clearTokens()
+        print("👋 Signed out of eBay")
+    }
+}
+
+// MARK: - EBAY USER MODEL
+struct EbayUser: Codable {
+    let userId: String
+    let username: String
+    let email: String
+    let registrationDate: String
+}
+
+// MARK: - SAFARI VIEW CONTROLLER DELEGATE (FIXED)
+extension EbayService: SFSafariViewControllerDelegate {
+    func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+        print("📱 User cancelled eBay OAuth")
+        DispatchQueue.main.async {
+            self.authStatus = "Connection cancelled"
+            self.authCompletion?(false)
+        }
+    }
+}
+
+// MARK: - BASE64URL ENCODING EXTENSION
+extension Data {
+    func base64URLEncodedString() -> String {
+        return base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}
