@@ -13,156 +13,294 @@ struct EbayConnectView: View {
     @State private var isConnecting = false
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var shouldAutoTransition = false
+    @State private var showingInstructions = false
     
     var body: some View {
-        VStack(spacing: DesignSystem.spacing8) {
-            Spacer()
-            
-            // eBay Integration Header
-            VStack(spacing: DesignSystem.spacing6) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: DesignSystem.radiusXLarge)
-                        .fill(DesignSystem.surfaceGradient)
-                        .frame(width: 120, height: 120)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DesignSystem.radiusXLarge)
-                                .stroke(connectionStatusColor.opacity(0.3), lineWidth: 3)
-                        )
-                    
-                    VStack(spacing: 8) {
-                        Text("eBay")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(DesignSystem.textPrimary)
-                        
-                        Image(systemName: connectionStatusIcon)
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(connectionStatusColor)
-                    }
-                }
-                .premiumGlow(color: connectionStatusColor, radius: 25, intensity: 0.6)
+        ScrollView {
+            VStack(spacing: 32) {
+                Spacer(minLength: 40)
                 
-                VStack(spacing: DesignSystem.spacing3) {
-                    Text("Connect to eBay")
-                        .font(DesignSystem.titleFont)
+                // eBay Integration Header
+                VStack(spacing: 24) {
+                    ZStack {
+                        Circle()
+                            .fill(DesignSystem.surfaceGradient)
+                            .frame(width: 140, height: 140)
+                            .overlay(
+                                Circle()
+                                    .stroke(connectionStatusColor.opacity(0.3), lineWidth: 3)
+                            )
+                        
+                        VStack(spacing: 12) {
+                            Image(systemName: "storefront.fill")
+                                .font(.system(size: 48, weight: .medium))
+                                .foregroundColor(DesignSystem.aiPrimary)
+                            
+                            Text("eBay")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(DesignSystem.textPrimary)
+                        }
+                    }
+                    .premiumGlow(color: DesignSystem.aiPrimary, radius: 25, intensity: 0.4)
+                    
+                    VStack(spacing: 12) {
+                        Text("Connect Your eBay Store")
+                            .font(DesignSystem.largeTitleFont)
+                            .fontWeight(.bold)
+                            .foregroundColor(DesignSystem.textPrimary)
+                            .multilineTextAlignment(.center)
+                        
+                        Text("Connect your eBay account to automatically list items and manage your inventory with AI-powered listings.")
+                            .font(DesignSystem.bodyFont)
+                            .foregroundColor(DesignSystem.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                    }
+                    .padding(.horizontal, 32)
+                }
+                
+                // Benefits Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("What You Get:")
+                        .font(DesignSystem.headlineFont)
+                        .fontWeight(.semibold)
                         .foregroundColor(DesignSystem.textPrimary)
                     
-                    Text("Link your eBay account to automatically create listings from AI analysis")
-                        .font(DesignSystem.bodyFont)
-                        .foregroundColor(DesignSystem.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
-                }
-                
-                // Connection Status Card
-                ConnectionStatusCard(
-                    isConnected: businessService.ebayService.isAuthenticated,
-                    status: businessService.ebayService.authStatus,
-                    connectedUser: businessService.ebayService.connectedUserName
-                )
-            }
-            
-            Spacer()
-            
-            // Action Section
-            VStack(spacing: DesignSystem.spacing6) {
-                if businessService.ebayService.isAuthenticated {
-                    // Success State
-                    VStack(spacing: DesignSystem.spacing4) {
-                        HStack(spacing: DesignSystem.spacing3) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(DesignSystem.success)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Connected to eBay!")
-                                    .font(DesignSystem.headlineFont)
-                                    .foregroundColor(DesignSystem.textPrimary)
-                                
-                                Text("Ready to create listings")
-                                    .font(DesignSystem.bodyFont)
-                                    .foregroundColor(DesignSystem.textSecondary)
-                            }
-                        }
-                        
-                        VStack(spacing: DesignSystem.spacing2) {
-                            Text("Transitioning to main app...")
-                                .font(DesignSystem.bodyFont)
-                                .foregroundColor(DesignSystem.textSecondary)
-                            
-                            ProgressRing(progress: 1.0, color: DesignSystem.success, size: 40)
-                        }
-                    }
-                    .padding(DesignSystem.spacing5)
-                    .premiumCard()
-                } else {
-                    // Connection Flow
-                    VStack(spacing: DesignSystem.spacing4) {
-                        PrimaryButton(
-                            title: isConnecting ? "Connecting..." : "Connect eBay Account",
-                            action: { connectToEbay() },
-                            isEnabled: !isConnecting,
-                            isLoading: isConnecting,
-                            icon: isConnecting ? nil : "link"
+                    VStack(spacing: 12) {
+                        BenefitRow(
+                            icon: "wand.and.stars.inverse",
+                            title: "AI-Powered Listings",
+                            description: "Automated titles, descriptions, and pricing"
                         )
                         
-                        Text("You'll be redirected to eBay to sign in securely")
-                            .font(DesignSystem.captionFont)
-                            .foregroundColor(DesignSystem.textTertiary)
-                            .multilineTextAlignment(.center)
+                        BenefitRow(
+                            icon: "photo.on.rectangle.angled",
+                            title: "Photo-to-Listing",
+                            description: "Take a photo, get a complete eBay listing"
+                        )
+                        
+                        BenefitRow(
+                            icon: "chart.line.uptrend.xyaxis",
+                            title: "Smart Pricing",
+                            description: "Market data-driven price suggestions"
+                        )
+                        
+                        BenefitRow(
+                            icon: "clock.fill",
+                            title: "Save Hours",
+                            description: "30 seconds vs 30 minutes per listing"
+                        )
                     }
                 }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 20)
+                .background(DesignSystem.surfaceSecondary)
+                .cornerRadius(DesignSystem.radiusLarge)
+                .padding(.horizontal, 32)
+                
+                // Instructions Button
+                Button(action: { showingInstructions = true }) {
+                    HStack {
+                        Image(systemName: "questionmark.circle.fill")
+                        Text("How does eBay connection work?")
+                    }
+                    .font(DesignSystem.captionFont)
+                    .foregroundColor(DesignSystem.aiPrimary)
+                }
+                .padding(.horizontal, 32)
+                
+                Spacer(minLength: 20)
+                
+                // Connect Button
+                VStack(spacing: 16) {
+                    Button(action: connectToEbay) {
+                        HStack(spacing: 12) {
+                            if isConnecting {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "link.circle.fill")
+                                    .font(.system(size: 20, weight: .medium))
+                            }
+                            
+                            Text(isConnecting ? "Connecting..." : "Connect to eBay")
+                                .font(DesignSystem.headlineFont)
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(isConnecting ? Color.gray : DesignSystem.aiPrimary)
+                        )
+                        .premiumGlow(color: isConnecting ? .gray : DesignSystem.aiPrimary, radius: 6, intensity: 0.4)
+                    }
+                    .disabled(isConnecting)
+                    
+                    Text("Secure OAuth 2.0 • Your login stays with eBay")
+                        .font(DesignSystem.footnoteFont)
+                        .foregroundColor(DesignSystem.textTertiary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 40)
             }
-            .padding(.horizontal, DesignSystem.spacing6)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignSystem.background)
+        .sheet(isPresented: $showingInstructions) {
+            EbayInstructionsSheet()
+        }
         .alert("Connection Error", isPresented: $showingError) {
-            Button("OK") { }
-            Button("Try Again") { connectToEbay() }
+            Button("Try Again", action: connectToEbay)
+            Button("Cancel", role: .cancel) { }
         } message: {
             Text(errorMessage)
         }
         .onAppear {
             print("🔍 EbayConnectView appeared - isAuthenticated: \(businessService.ebayService.isAuthenticated)")
         }
-        .onChange(of: businessService.ebayService.isAuthenticated) { isAuthenticated in
-            print("🔄 EbayConnectView detected auth change: \(isAuthenticated)")
-            if isAuthenticated {
-                print("✅ eBay connected - setting auto-transition flag")
-                shouldAutoTransition = true
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    print("🚀 Auto-transitioning to main app")
-                }
-            }
-        }
-        .onChange(of: businessService.ebayService.connectedUserName) { userName in
-            print("🔄 EbayConnectView detected user name change: \(userName)")
-            if !userName.isEmpty && businessService.ebayService.isAuthenticated {
-                shouldAutoTransition = true
-            }
-        }
     }
     
     private var connectionStatusColor: Color {
-        businessService.ebayService.isAuthenticated ? DesignSystem.success : DesignSystem.warning
-    }
-    
-    private var connectionStatusIcon: String {
-        businessService.ebayService.isAuthenticated ? "checkmark.circle.fill" : "link.circle"
+        businessService.ebayService.isAuthenticated ? DesignSystem.success : DesignSystem.aiPrimary
     }
     
     private func connectToEbay() {
         isConnecting = true
-        businessService.authenticateEbay { success in
+        errorMessage = ""
+        
+        businessService.connectToEbay { success, error in
             DispatchQueue.main.async {
                 isConnecting = false
-                if !success {
-                    errorMessage = "Failed to connect to eBay. Please check your internet connection and try again."
+                
+                if !success, let error = error {
+                    errorMessage = error
                     showingError = true
                 }
             }
+        }
+    }
+}
+
+// MARK: - EBAY INSTRUCTIONS SHEET
+struct EbayInstructionsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("How eBay Connection Works")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(DesignSystem.textPrimary)
+                        
+                        Text("ResellAI uses secure OAuth 2.0 to connect with your eBay account. Here's what happens:")
+                            .font(.body)
+                            .foregroundColor(DesignSystem.textSecondary)
+                    }
+                    
+                    // Steps
+                    VStack(alignment: .leading, spacing: 20) {
+                        InstructionStep(
+                            number: 1,
+                            title: "Secure Redirect",
+                            description: "You'll be redirected to eBay's official login page in Safari"
+                        )
+                        
+                        InstructionStep(
+                            number: 2,
+                            title: "Sign In Safely",
+                            description: "Enter your eBay credentials directly on eBay's secure website"
+                        )
+                        
+                        InstructionStep(
+                            number: 3,
+                            title: "Grant Permissions",
+                            description: "Allow ResellAI to manage your listings and inventory"
+                        )
+                        
+                        InstructionStep(
+                            number: 4,
+                            title: "Return to App",
+                            description: "You'll be automatically redirected back to ResellAI"
+                        )
+                    }
+                    
+                    // Security Note
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "shield.checkered")
+                                .foregroundColor(.green)
+                            Text("Security & Privacy")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("• Your eBay password never passes through our app")
+                            Text("• We only receive secure access tokens")
+                            Text("• You can revoke access anytime in eBay settings")
+                            Text("• All connections use encrypted HTTPS")
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(DesignSystem.textSecondary)
+                    }
+                    .padding()
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+                    
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationTitle("eBay Connection")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("Done") { dismiss() }
+            )
+        }
+    }
+}
+
+// MARK: - INSTRUCTION STEP
+struct InstructionStep: View {
+    let number: Int
+    let title: String
+    let description: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            // Step Number
+            ZStack {
+                Circle()
+                    .fill(DesignSystem.aiPrimary)
+                    .frame(width: 32, height: 32)
+                
+                Text("\(number)")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+            }
+            
+            // Content
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(DesignSystem.textPrimary)
+                
+                Text(description)
+                    .font(.body)
+                    .foregroundColor(DesignSystem.textSecondary)
+                    .lineSpacing(2)
+            }
+            
+            Spacer()
         }
     }
 }
