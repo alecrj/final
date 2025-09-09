@@ -50,18 +50,18 @@ struct AnalysisView: View {
                         
                         // Analysis Status
                         if viewModel.isAnalyzing {
-                            AnalysisStatusView(status: viewModel.analysisStatus)
+                            AnalysisStatusView(status: "Analyzing your item...")
                                 .padding(.horizontal)
                         }
                         
                         // Results
-                        if let result = viewModel.analysisResult {
+                        if let result = viewModel.result {
                             AnalysisResultView(result: result)
                                 .padding(.horizontal)
                         }
                         
                         // Error Message
-                        if let error = viewModel.errorMessage {
+                        if let error = viewModel.error {
                             ErrorView(message: error)
                                 .padding(.horizontal)
                         }
@@ -275,8 +275,8 @@ struct AnalysisResultView: View {
             
             // Product Info
             VStack(alignment: .leading, spacing: 12) {
-                InfoRow(label: "Item", value: result.productName)
-                InfoRow(label: "Brand", value: result.brand ?? "Unknown")
+                InfoRow(label: "Item", value: result.name)
+                InfoRow(label: "Brand", value: result.brand)
                 InfoRow(label: "Condition", value: result.condition)
                 InfoRow(label: "Category", value: result.category)
             }
@@ -426,14 +426,14 @@ struct PricingView: View {
             HStack(spacing: 16) {
                 PriceOptionView(
                     title: "Quick Sale",
-                    price: result.quickSalePrice,
+                    price: result.quickPrice,
                     description: "Sell in 1-3 days",
                     color: .orange
                 )
                 
                 PriceOptionView(
                     title: "Optimal",
-                    price: result.optimalPrice,
+                    price: result.suggestedPrice,
                     description: "Best value",
                     color: .green,
                     isRecommended: true
@@ -441,18 +441,18 @@ struct PricingView: View {
                 
                 PriceOptionView(
                     title: "Premium",
-                    price: result.premiumPrice ?? result.optimalPrice * 1.15,
+                    price: result.premiumPrice,
                     description: "Max profit",
                     color: .purple
                 )
             }
             
-            // ROI Indicator
-            if let roi = result.estimatedROI {
+            // Resale Potential Indicator
+            if let potential = result.resalePotential {
                 HStack {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .foregroundColor(.green)
-                    Text("Estimated ROI: \(Int(roi))%")
+                    Text("Resale Potential: \(potential)/10")
                         .font(.subheadline)
                         .foregroundColor(.green)
                 }
