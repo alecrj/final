@@ -143,10 +143,34 @@ struct EbayConnectView: View {
                     }
                     .disabled(isConnecting)
                     
+                    // Skip for Testing Button
+                    Button(action: skipEbayForTesting) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "forward.fill")
+                                .font(.system(size: 16, weight: .medium))
+                            
+                            Text("Skip eBay for Testing")
+                                .font(DesignSystem.bodyFont)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(DesignSystem.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(DesignSystem.surfaceSecondary)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(DesignSystem.textTertiary.opacity(0.3), lineWidth: 1)
+                                )
+                        )
+                    }
+                    
                     Text("Secure OAuth 2.0 • Your login stays with eBay")
                         .font(DesignSystem.footnoteFont)
                         .foregroundColor(DesignSystem.textTertiary)
                         .multilineTextAlignment(.center)
+                        .padding(.top, 8)
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 40)
@@ -185,6 +209,12 @@ struct EbayConnectView: View {
                 }
             }
         }
+    }
+    
+    private func skipEbayForTesting() {
+        // Set a flag to indicate we're in testing mode
+        businessService.enableTestingMode()
+        print("🧪 eBay skipped for testing - entering demo mode")
     }
 }
 

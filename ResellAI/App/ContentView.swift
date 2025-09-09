@@ -116,6 +116,30 @@ struct MainCameraView: View {
     
     var body: some View {
         VStack {
+            // Testing Mode Indicator
+            if businessService.isTestingMode {
+                HStack {
+                    Image(systemName: "flask.fill")
+                        .foregroundColor(.orange)
+                    Text("Testing Mode - eBay Skipped")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    Button("Exit Testing") {
+                        businessService.disableTestingMode()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+                .padding(.horizontal)
+            }
+            
             Text("🎉 ResellAI Pipeline Complete!")
                 .font(.largeTitle)
                 .fontWeight(.bold)

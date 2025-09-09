@@ -617,6 +617,16 @@ class BusinessService: ObservableObject {
     }
     
     func createEbayListing(from analysis: AnalysisResult, images: [UIImage], completion: @escaping (Bool, String?) -> Void) {
+        // Handle testing mode
+        if isTestingMode {
+            print("🧪 Testing mode: Simulating eBay listing creation")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                print("✅ Mock listing created successfully!")
+                completion(true, nil)
+            }
+            return
+        }
+        
         guard let authService = authService else {
             completion(false, "Auth service not initialized")
             return
@@ -668,6 +678,36 @@ class BusinessService: ObservableObject {
         print("📱 Analyzing barcode: \(barcode)")
         updateProgress("Looking up product by barcode...", progress: 0.1)
         analyzeItem(images, completion: completion)
+    }
+    
+    // MARK: - TESTING MODE
+    @Published var isTestingMode = false
+    
+    func enableTestingMode() {
+        isTestingMode = true
+        
+        // Mock eBay as "connected" for testing purposes
+        ebayService.isAuthenticated = true
+        ebayService.authStatus = "Testing Mode - No Real Connection"
+        ebayService.connectedUserName = "Demo User"
+        
+        // Force UI refresh
+        objectWillChange.send()
+        
+        print("🧪 Testing mode enabled - eBay connection mocked")
+        print("✅ App will continue to main interface for AI testing")
+    }
+    
+    func disableTestingMode() {
+        isTestingMode = false
+        
+        // Reset eBay authentication status
+        ebayService.isAuthenticated = false
+        ebayService.authStatus = "Not Connected"
+        ebayService.connectedUserName = ""
+        
+        objectWillChange.send()
+        print("🔄 Testing mode disabled - returning to normal flow")
     }
 }
 

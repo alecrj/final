@@ -24,7 +24,7 @@ struct Configuration {
     // ✅ CORRECT OAUTH REDIRECT URIS - USING YOUR DOMAIN
     static let ebayRedirectURI = ProcessInfo.processInfo.environment["EBAY_REDIRECT_URI"] ?? "https://resellaiapp.com/ebay-callback.html"
     static let ebayAppScheme = "resellai://auth/ebay"
-    static let ebayRuName = ProcessInfo.processInfo.environment["EBAY_RU_NAME"] ?? ""
+    static let ebayRuName = ProcessInfo.processInfo.environment["EBAY_RU_NAME"] ?? "Alec_Rodriguez-AlecRodr-resell-yinuaueco"
     
     // eBay Seller Policies (OPTIONAL - WILL AUTO-CREATE IF EMPTY)
     static let ebayFulfillmentPolicyId = ProcessInfo.processInfo.environment["EBAY_FULFILLMENT_POLICY_ID"] ?? ""
