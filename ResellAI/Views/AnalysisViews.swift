@@ -573,6 +573,107 @@ struct CameraView: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - Create Listing View
+struct CreateListingView: View {
+    let analysisResult: AnalysisResult
+    @Environment(\.dismiss) private var dismiss
+    @State private var isCreatingListing = false
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // Header
+                Text("Create eBay Listing")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .padding(.top)
+                
+                // Product Summary
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Product Summary")
+                        .font(.headline)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        InfoRow(label: "Item", value: analysisResult.name)
+                        InfoRow(label: "Brand", value: analysisResult.brand)
+                        InfoRow(label: "Condition", value: analysisResult.condition)
+                        InfoRow(label: "Suggested Price", value: String(format: "$%.2f", analysisResult.suggestedPrice))
+                    }
+                }
+                .padding()
+                .background(Color(UIColor.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                
+                // Listing Details
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Listing Details")
+                        .font(.headline)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Title:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text(analysisResult.title)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Description:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .padding(.top, 8)
+                        Text(analysisResult.description)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding()
+                .background(Color(UIColor.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                
+                Spacer()
+                
+                // Create Listing Button
+                Button(action: createListing) {
+                    HStack {
+                        if isCreatingListing {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "plus.circle.fill")
+                        }
+                        Text(isCreatingListing ? "Creating Listing..." : "Create eBay Listing")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(isCreatingListing ? Color.gray : Color.green)
+                    .cornerRadius(12)
+                }
+                .disabled(isCreatingListing)
+                .padding(.bottom)
+            }
+            .padding()
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Cancel") { dismiss() }
+            )
+        }
+    }
+    
+    private func createListing() {
+        isCreatingListing = true
+        
+        // Simulate creating listing (replace with actual eBay listing creation)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            isCreatingListing = false
+            // TODO: Integrate with actual eBay listing service
+            dismiss()
+        }
+    }
+}
+
 // MARK: - Preview
 struct AnalysisView_Previews: PreviewProvider {
     static var previews: some View {
